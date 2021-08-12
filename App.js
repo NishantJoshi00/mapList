@@ -4,11 +4,15 @@ import React, {useState, useEffect} from 'react';
 import { PermissionsAndroid, PermissionStatus, KeyboardAvoidingView, StyleSheet, Text, View, TextInput, TouchableOpacity, Keyboard, ScrollView, Platform, Button, Image, BackHandler, Dimensions, ToastAndroid } from 'react-native';
 import MapView, { Marker, Circle } from 'react-native-maps';
 import * as Location from 'expo-location';
+import AppLoading from 'expo-app-loading';
+
+
 const BACKGROUND_COLOR = "white"
 const FONT_COLOR = "#61adbf"
 const COMPONENT_COLOR = '#bfb5d7'
 const SUB_COMPONENT_COLOR = 'yellow'
-import AppLoading from 'expo-app-loading';
+
+
 
 const styles = StyleSheet.create({
 	mainWrapper: {
@@ -73,10 +77,10 @@ const styles = StyleSheet.create({
 		padding: 10,
 		borderRadius: 2
 	},
-  mapView: {
-    width: "100%",
-    height: 500,
-  },
+  	mapView: {
+    	width: "100%",
+    	height: 500,
+  	},
 
 })
 
@@ -161,6 +165,12 @@ const TaskCreator = (props) => {
 		if (taskName == "" || radius == "0" || coord == null) {
 			ToastAndroid.show("Might be something you haven't filled yet.", ToastAndroid.SHORT)
 		}
+		// -----
+	}
+	
+	const modifiedParseInt = (val) => {
+		if (val === "") return 0
+		else return parseInt(val)
 	}
   
   if (userLocation == null) {
@@ -172,6 +182,7 @@ const TaskCreator = (props) => {
     
     return (
       <View style={styles.mainWrapper}>
+		<ScrollView >
         <View style={styles.taskEditorComponent}>
           <GotoHome state={props.setPage}/>
         </View>
@@ -182,15 +193,10 @@ const TaskCreator = (props) => {
   
         <View style={styles.taskEditorComponent}>
           <Text style={[styles.labelField, {fontWeight: 'bold'}]}>radius:</Text>
-          <TextInput style={styles.textField} onChangeText={(val) => {
-			  if (val == "") {
-				  setRadius("0")
-			  } else {
-				  setRadius(val)
-			  }
-		  }} value={radius} keyboardType="numeric" />
+          <TextInput style={styles.textField} onChangeText={setRadius} value={radius} keyboardType="numeric" placeholder={"radius"} />
           <Text style={styles.labelField}>m</Text>
         </View>
+
         <View style={[styles.taskEditorComponent]}>
           <MapView style={styles.mapView} showsUserLocation={true} zoomEnabled={true} initialRegion={{
             longitude: userLocation.coords.longitude,
@@ -200,7 +206,7 @@ const TaskCreator = (props) => {
           }} onPress={(point) => {
 			  setCoord(point.nativeEvent.coordinate);
 			  setMarker(<Marker coordinate={point.nativeEvent.coordinate} />);
-			  setAOE(<Circle center={point.nativeEvent.coordinate} radius={parseInt(radius)} strokeWidth={1.5} strokeColor={"#1484CD"} fillColor={"#1484CD50"} />)
+			  setAOE(<Circle center={point.nativeEvent.coordinate} radius={modifiedParseInt(radius)} strokeWidth={1.5} strokeColor={"#1484CD"} fillColor={"#1484CD50"} />)
 		  }}>
 			  {marker}
 			  {AOE}
@@ -211,12 +217,14 @@ const TaskCreator = (props) => {
         <View style={styles.taskEditorComponent}>
           <Button title="save" onPress={saveTask} style={styles.onlyButton}/>
         </View>
-  
+		</ScrollView>
       </View>
     )
   }
 	
 }
+
+
 
 export default function App() {
 	let [getPage, setPage] = useState(true);
@@ -255,3 +263,9 @@ export default function App() {
 
 }
 
+
+
+// LocalStorge Access & Store saveButton
+// Main Page Display Task
+// Background, Task saved and do geoFensing
+// Push Notification
