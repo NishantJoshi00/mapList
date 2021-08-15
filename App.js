@@ -5,7 +5,7 @@ import { PermissionsAndroid, PermissionStatus, KeyboardAvoidingView, StyleSheet,
 import MapView, { Marker, Circle } from 'react-native-maps';
 import * as Location from 'expo-location';
 import AppLoading from 'expo-app-loading';
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const BACKGROUND_COLOR = "white"
 const FONT_COLOR = "#61adbf"
@@ -105,11 +105,11 @@ const Title = (props) => {
 }
 
 const TaskList = (props) => {
-
+	// fetch the tasks from the DB & display it 
 	return (
 		<View style={styles.listComponent}>
 			<ScrollView>
-
+				{}
 			</ScrollView>
 		</View>
 	)
@@ -144,47 +144,47 @@ const GotoHome = (props) => {
 const TaskCreator = (props) => {
 	let [taskName, setTaskName] = useState("");
 	let [radius, setRadius] = useState("50");
-	let [userLocation, setUserLocation] = useState();
 	let [marker, setMarker] = useState(null);
 	let [AOE, setAOE] = useState(null);
 	let [coord, setCoord] = useState(null);
-  	Location.getForegroundPermissionsAsync()
-    	.then((data) => {
-    	  if (!data.granted) BackHandler.exitApp()
-    	  else {
-    	    Location.getCurrentPositionAsync()
-    	      .then((data) => {
-    	        setUserLocation(data)
-    	      })
-    	      .catch(console.warn)
-    	  }
-    	})
-    .catch(console.warn)
-	const saveTask = () => {
+
+	const saveTask = async () => {
+		console.log("Clicked on saveTask");
 		// Verify Data
 		if (taskName == "" || radius == "0" || coord == null) {
-			ToastAndroid.show("Might be something you haven't filled yet.", ToastAndroid.SHORT)
+			ToastAndroid.show("Might be something you haven't filled yet.", ToastAndroid.SHORT);
+			return
 		}
-		// -----
+		const data = {
+			task: taskName,
+			radius: radius,
+			location: coord
+		};
+		const hash = require("object-hash");
+		await AsyncStorage.setItem(`@task:${hash(data)}`, JSON.stringify(data));
+		ToastAndroid.show("Task saved successfully!", ToastAndroid.SHORT)
+		console.log('toast done');
+		props.setPg(true);
 	}
+	
 	
 	const modifiedParseInt = (val) => {
 		if (val === "") return 0
 		else return parseInt(val)
 	}
   
-  if (userLocation == null) {
+  if (props.userLocation == null) {
     
     return (
       <AppLoading />
     )
   } else {
-    
+	
     return (
       <View style={styles.mainWrapper}>
 		<ScrollView >
         <View style={styles.taskEditorComponent}>
-          <GotoHome state={props.setPage}/>
+          <GotoHome state={props.setPg}/>
         </View>
         
         <View style={styles.taskEditorComponent}>
@@ -199,8 +199,8 @@ const TaskCreator = (props) => {
 
         <View style={[styles.taskEditorComponent]}>
           <MapView style={styles.mapView} showsUserLocation={true} zoomEnabled={true} initialRegion={{
-            longitude: userLocation.coords.longitude,
-            latitude: userLocation.coords.latitude,
+            longitude: props.userLocation.coords.longitude,
+            latitude: props.userLocation.coords.latitude,
             latitudeDelta: 0.01,
             longitudeDelta: 0.01
           }} onPress={(point) => {
@@ -228,7 +228,7 @@ const TaskCreator = (props) => {
 
 export default function App() {
 	let [getPage, setPage] = useState(true);
-	
+	let [userLocation, setUserLocation] = useState();
 	useEffect(() => {
     requestLocationPermission()
 		const backHandler = BackHandler.addEventListener("hardwareBackPress", () => { 
@@ -241,6 +241,19 @@ export default function App() {
 			}
 			
 		})
+
+		Location.getForegroundPermissionsAsync()
+		.then((perm) => {
+			if (!perm.granted) BackHandler.exitApp();
+			else {
+				Location.getCurrentPositionAsync()
+				.then((loc) => {
+					setUserLocation(loc)
+				})
+			}
+		})
+		.catch(console.warn)
+
 
 		return () => backHandler.remove();
 	})
@@ -256,7 +269,7 @@ export default function App() {
 	} else {
 		
 		return (
-			<TaskCreator page={getPage} setPage={setPage}/>
+			<TaskCreator setPg={setPage} userLocation={userLocation}/>
 		)
 	}
 	
