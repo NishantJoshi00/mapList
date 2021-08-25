@@ -1,18 +1,20 @@
 import { StatusBar } from 'expo-status-bar';
   
 import React, {useState, useEffect} from 'react';
-import { PermissionsAndroid, PermissionStatus, KeyboardAvoidingView, StyleSheet, Text, View, TextInput, TouchableOpacity, Keyboard, ScrollView, Platform, Button, Image, BackHandler, Dimensions, ToastAndroid } from 'react-native';
+import { PermissionStatus, StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, Button, Image, BackHandler, ToastAndroid, LayoutAnimation } from 'react-native';
 import MapView, { Marker, Circle } from 'react-native-maps';
 import * as Location from 'expo-location';
 import AppLoading from 'expo-app-loading';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
 const BACKGROUND_COLOR = "white"
 const FONT_COLOR = "#61adbf"
 const COMPONENT_COLOR = '#bfb5d7'
 const SUB_COMPONENT_COLOR = 'yellow'
 
-
+import { LocationGeofencingEventType } from 'expo-location';
+import * as TaskManager from 'expo-task-manager';
+import Constants from 'expo-constants';
+import * as Notifications from 'expo-notifications';
 
 const styles = StyleSheet.create({
 	mainWrapper: {
@@ -81,10 +83,19 @@ const styles = StyleSheet.create({
     	width: "100%",
     	height: 500,
   	},
+	  taskListView: {
+		  padding: 10
+	  }
 
 })
 
-
+Notifications.setNotificationHandler({
+	handleNotification: async () => ({
+	  shouldShowAlert: true,
+	  shouldPlaySound: false,
+	  shouldSetBadge: false,
+	}),
+  });
 
 
 const requestLocationPermission = async () => {
@@ -104,18 +115,58 @@ const Title = (props) => {
 	)
 }
 
-const TaskList = (props) => {
-	// fetch the tasks from the DB & display it 
+TaskManager.defineTask('@geofencing', ({ data: { eventType, region }, error }) => {
+	if (error) {
+		console.log(error.message);
+		return;
+	}
+
+	if ( eventType == LocationGeofencingEventType.Enter ) {
+		Notifications.scheduleNotificationAsync({
+			content: {
+				title: "Time's up!",
+				body: 'Change sides!',
+			},
+			trigger: {
+				seconds: 5
+			}
+
+		})
+	}
+})
+
+const Task = (props) => {
+	const [collapse, setCollapse] = useState(false);
+	const onPress = () => {
+		LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+		setCollapse(!setCollapse);
+	}
 	return (
-		<View style={styles.listComponent}>
-			<ScrollView>
-				{}
-			</ScrollView>
+		<View style={[styles.taskBox, !open && {height: 40}]} >
+			<TouchableOpacity onPress={onPress}>
+				{/* <Text>{taskName}</Text> */}
+			</TouchableOpacity>
+			{/* Components displaying the details of the task */}
 		</View>
 	)
 }
 
+const TaskList = (props) => {
+	// fetch the tasks from the DB & display it
+	const a = [];
 
+	return (
+		<View style={styles.listComponent}>
+			<ScrollView style={styles.taskListView}>
+				{props.tasks.map((data) => {
+					return (
+						<Task key={data[0]} params={data[1]} />
+					)
+				})}
+			</ScrollView>
+		</View>
+	)
+}
 
 const AddTask = (props) => {
 	const addTaskPage = () => {
@@ -224,13 +275,37 @@ const TaskCreator = (props) => {
 	
 }
 
-
-
 export default function App() {
 	let [getPage, setPage] = useState(true);
 	let [userLocation, setUserLocation] = useState();
+	let [tasks, setTasks] = useState([]);
+	const getKeyData = async () => {
+		const keys = await AsyncStorage.getAllKeys();
+		const task_keys = keys.filter((val) => val.startsWith("@task"));
+		const data = await AsyncStorage.multiGet(task_keys);
+		data.forEach((value) => {
+			return [value[0], JSON.parse(value[1])]
+		});
+		return data
+	}
+
 	useEffect(() => {
-    requestLocationPermission()
+		getKeyData()
+		.then((data) => {
+			setTasks(data)
+			Location.startGeofencingAsync("@geofencing", data.map(([key, reg]) => {
+				return {
+					identifier: key,
+					latitude: reg.location.latitude,
+					longitude: reg.location.longitude,
+					radius: reg.radius
+				}
+			}))
+		})
+		.catch(console.warn)
+	}, [tasks, setTasks]);
+	useEffect(() => {
+    	requestLocationPermission()
 		const backHandler = BackHandler.addEventListener("hardwareBackPress", () => { 
 			if (!getPage) {
 				setPage(true)
@@ -262,7 +337,7 @@ export default function App() {
 		return (
 			<View style={styles.mainWrapper}>
 				<Title />
-				<TaskList />
+				<TaskList tasks={tasks}/>
 				<AddTask state={setPage}/>
 			</View>
 		)
