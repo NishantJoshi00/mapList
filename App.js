@@ -142,7 +142,7 @@ const Task = (props) => {
 		setCollapse(!setCollapse);
 	}
 	return (
-		<View style={[styles.taskBox, !open && {height: 40}]} >
+		<View style={[styles.taskBox, !collapse && {height: 40}]} >
 			<TouchableOpacity onPress={onPress}>
 				{/* <Text>{taskName}</Text> */}
 			</TouchableOpacity>
@@ -278,6 +278,7 @@ const TaskCreator = (props) => {
 export default function App() {
 	let [getPage, setPage] = useState(true);
 	let [userLocation, setUserLocation] = useState();
+	let [locreq, dolocreq] = useState(false);
 	let [tasks, setTasks] = useState([]);
 	const getKeyData = async () => {
 		const keys = await AsyncStorage.getAllKeys();
@@ -293,14 +294,14 @@ export default function App() {
 		getKeyData()
 		.then((data) => {
 			setTasks(data)
-			Location.startGeofencingAsync("@geofencing", data.map(([key, reg]) => {
-				return {
-					identifier: key,
-					latitude: reg.location.latitude,
-					longitude: reg.location.longitude,
-					radius: reg.radius
-				}
-			}))
+			// Location.startGeofencingAsync("@geofencing", data.map(([key, reg]) => {
+			// 	return {
+			// 		identifier: key,
+			// 		latitude: reg.location.latitude,
+			// 		longitude: reg.location.longitude,
+			// 		radius: reg.radius
+			// 	}
+			// })) // BUG
 		})
 		.catch(console.warn)
 	}, [tasks, setTasks]);
@@ -316,19 +317,29 @@ export default function App() {
 			}
 			
 		})
-
-		Location.getForegroundPermissionsAsync()
-		.then((perm) => {
-			if (!perm.granted) BackHandler.exitApp();
-			else {
-				Location.getCurrentPositionAsync()
-				.then((loc) => {
-					setUserLocation(loc)
-				})
-			}
-		})
-		.catch(console.warn)
-
+		if (!locreq) { 
+			dolocreq(true)
+			Location.getForegroundPermissionsAsync()
+			.then((perm) => {
+				if (!perm.granted) BackHandler.exitApp();
+				else {
+					// Location.getBackgroundPermissionsAsync();
+					Location.getCurrentPositionAsync()
+					.then((loc) => {
+						setUserLocation(loc);
+						dolocreq(false)
+						console.log(loc)
+					})
+					.catch((err) => {
+						console.warn(err)
+					})
+				}
+			})
+			.catch((err) => {
+				console.warn(err);
+				BackHandler.exitApp();
+			})
+		}
 
 		return () => backHandler.remove();
 	})
