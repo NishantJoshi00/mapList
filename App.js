@@ -81,11 +81,29 @@ const styles = StyleSheet.create({
 	},
   	mapView: {
     	width: "100%",
-    	height: 500,
+    	height: 200,
   	},
-	  taskListView: {
+	taskListView: {
 		  padding: 10
-	  }
+	},
+	taskBox: {
+		alignItems: "center",
+		margin: 10,
+		// borderStyle: 'solid',
+		// borderWidth: 1,
+		// marginLeft: "40%",
+		// marginRight: "40%",
+		padding: 10,
+		borderRadius: 10,
+		backgroundColor: 'white'
+	},
+	collapseTask: {
+		padding: 10,
+		marginTop: 10,
+		display: 'flex',
+		flexDirection: 'row',
+		
+	}
 
 })
 
@@ -102,6 +120,7 @@ const requestLocationPermission = async () => {
   let { status } = await Location.requestForegroundPermissionsAsync();
   if (status != 'granted') {
     ToastAndroid.show("Permission Denied")
+	BackHandler.exitApp();
   }
 }
 
@@ -115,46 +134,37 @@ const Title = (props) => {
 	)
 }
 
-TaskManager.defineTask('@geofencing', ({ data: { eventType, region }, error }) => {
-	if (error) {
-		console.log(error.message);
-		return;
-	}
-
-	if ( eventType == LocationGeofencingEventType.Enter ) {
-		Notifications.scheduleNotificationAsync({
-			content: {
-				title: "Time's up!",
-				body: 'Change sides!',
-			},
-			trigger: {
-				seconds: 5
-			}
-
-		})
-	}
-})
 
 const Task = (props) => {
 	const [collapse, setCollapse] = useState(false);
 	const onPress = () => {
 		LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-		setCollapse(!setCollapse);
+		setCollapse(!collapse);
 	}
+	const taskDetails = JSON.parse(props.params);
 	return (
 		<View style={[styles.taskBox, !collapse && {height: 40}]} >
 			<TouchableOpacity onPress={onPress}>
-				{/* <Text>{taskName}</Text> */}
+				<Text>{taskDetails.task}</Text>
 			</TouchableOpacity>
-			{/* Components displaying the details of the task */}
+			{ collapse && 
+			<View style={styles.collapseTask}>
+				<MapView style={styles.mapView} zoomEnabled={true} initialRegion={{
+				longitude: taskDetails.location.longitude,
+				latitude: taskDetails.location.latitude,
+				latitudeDelta: 0.01,
+				longitudeDelta: 0.01
+			}}>
+					<Marker coordinate={taskDetails.location} />
+					<Circle center={taskDetails.location} radius={parseInt(taskDetails.radius)} strokeWidth={1.5} strokeColor={"#1484CD"} fillColor={"#1484CD50"} />
+				</MapView>
+			</View>
+			}
 		</View>
 	)
 }
 
 const TaskList = (props) => {
-	// fetch the tasks from the DB & display it
-	const a = [];
-
 	return (
 		<View style={styles.listComponent}>
 			<ScrollView style={styles.taskListView}>
@@ -293,7 +303,8 @@ export default function App() {
 	useEffect(() => {
 		getKeyData()
 		.then((data) => {
-			setTasks(data)
+			setTasks(data);
+			
 			// Location.startGeofencingAsync("@geofencing", data.map(([key, reg]) => {
 			// 	return {
 			// 		identifier: key,
@@ -318,27 +329,17 @@ export default function App() {
 			
 		})
 		if (!locreq) { 
-			dolocreq(true)
-			Location.getForegroundPermissionsAsync()
-			.then((perm) => {
-				if (!perm.granted) BackHandler.exitApp();
-				else {
-					// Location.getBackgroundPermissionsAsync();
-					Location.getCurrentPositionAsync()
-					.then((loc) => {
-						setUserLocation(loc);
-						dolocreq(false)
-						console.log(loc)
-					})
-					.catch((err) => {
-						console.warn(err)
-					})
-				}
-			})
-			.catch((err) => {
-				console.warn(err);
-				BackHandler.exitApp();
-			})
+			dolocreq(true)				// Location.getBackgroundPermissionsAsync();
+		Location.getLastKnownPositionAsync()
+		.then((loc) => {
+			setUserLocation(loc);
+			// dolocreq(false)
+			console.log(loc)
+		})
+		.catch((err) => {
+			console.warn(err)
+		})
+
 		}
 
 		return () => backHandler.remove();
@@ -362,9 +363,48 @@ export default function App() {
 
 }
 
+// // Create a background Task, that checks if the device has entered any of the location stored in async storage
+// TaskManager.defineTask('check-location', async () => {
+// 	const data = await getKeyData();
+// 	const { identifier, latitude, longitude, radius } = data[0][1];
+// 	const location = {
+// 		latitude,
+// 		longitude,
+// 		radius
+// 	}
+// 	const { coords } = await Location.getCurrentPositionAsync();
+// 	const { latitude: lat, longitude: lon } = coords;
+// 	const distance = await Location.distanceBetweenAsync(latitude, longitude, latitude, longitude);
+// 	if (distance <= radius) {
+// 		Notifications.presentLocalNotificationAsync({
+// 			title: "You have entered the area",
+// 			body: "You have entered the area",
+// 			sound: true,
+// 			data: {
+// 				identifier
+// 			}
+// 		});
+// 	}
+// });
 
 
-// LocalStorge Access & Store saveButton
-// Main Page Display Task
-// Background, Task saved and do geoFensing
-// Push Notification
+
+// TaskManager.defineTask('@geofencing', ({ data: { eventType, region }, error }) => {
+// 	if (error) {
+// 		console.log(error.message);
+// 		return;
+// 	}
+
+// 	if ( eventType == LocationGeofencingEventType.Enter ) {
+// 		Notifications.scheduleNotificationAsync({
+// 			content: {
+// 				title: "Time's up!",
+// 				body: 'Change sides!',
+// 			},
+// 			trigger: {
+// 				seconds: 5
+// 			}
+
+// 		})
+// 	}
+// })
